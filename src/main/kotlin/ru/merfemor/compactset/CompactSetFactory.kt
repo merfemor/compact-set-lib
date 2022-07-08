@@ -10,7 +10,7 @@ inline fun <reified T> newCompactSet(expectedSize: Int = 16): CompactSet<T> {
         throw IllegalArgumentException("expectedSize must be >= 0 but actual $expectedSize")
     }
     return when (T::class) {
-        Int::class, Double::class, Long::class -> newPrimitiveTypeCompactSet()
+        Int::class, Double::class, Long::class -> newPrimitiveTypeCompactSet(expectedSize, T::class.java)
         else -> newGeneralTypeCompactSet(expectedSize)
     }
 }
@@ -19,6 +19,8 @@ fun <T> newGeneralTypeCompactSet(expectedSize: Int): CompactSet<T> {
     return CompactSetGeneralImpl(expectedSize)
 }
 
-fun <T> newPrimitiveTypeCompactSet(): CompactSet<T> {
-    TODO("Not implemented")
+fun <T> newPrimitiveTypeCompactSet(expectedSize: Int, typeParameter: Class<T>): CompactSet<T> {
+    val compactSetImplClass = PrimitiveTypeCompactSetClassProvider.getImplClassFactory(typeParameter)
+    val constructor = compactSetImplClass.getDeclaredConstructor(Integer.TYPE)
+    return constructor.newInstance(expectedSize)
 }
