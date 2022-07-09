@@ -3,7 +3,7 @@ package ru.merfemor.compactset
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
-class CompactSetGeneralImplTest {
+class HashCompactSetGeneralImplTest {
 
     @Test
     fun `throws on incorrect expectedSize`() {
@@ -115,17 +115,6 @@ class CompactSetGeneralImplTest {
         for (element in elements) {
             Assertions.assertTrue(set.contains(element))
         }
-    }
-
-    @Test
-    fun `correctly handles collision with null hash`() {
-        val set = newCompactSet<CollisionTest?>()
-        set.add(null)
-        val e = CollisionTest("el", CompactSetGeneralImpl.NULL_HASH_VALUE)
-        set.add(e)
-        Assertions.assertEquals(2, set.size)
-        Assertions.assertTrue(set.contains(null))
-        Assertions.assertTrue(set.contains(e))
     }
 
     @Suppress("EqualsOrHashCode")

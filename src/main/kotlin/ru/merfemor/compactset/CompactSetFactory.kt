@@ -16,7 +16,7 @@ inline fun <reified T> newCompactSet(expectedSize: Int = 16): CompactSet<T> {
 }
 
 fun <T> newGeneralTypeCompactSet(expectedSize: Int): CompactSet<T> {
-    return CompactSetGeneralImpl(expectedSize)
+    return HashCompactSetGeneralImpl(expectedSize)
 }
 
 fun <T> newPrimitiveTypeCompactSet(expectedSize: Int, typeParameter: Class<T>): CompactSet<T> {
