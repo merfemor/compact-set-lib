@@ -1,6 +1,7 @@
 package ru.merfemor.compactset
 
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
@@ -72,7 +73,20 @@ class HashCompactSetPrimitiveTypeImplTest {
         Assertions.assertTrue(set.contains(arg.value))
     }
 
-    // TODO: collision tests
+    @Test
+    fun `correctly adds in case of collision`() {
+        val capacity = 10
+        val actualCapacity = (capacity / AbstractHashCompactSet.LOAD_FACTOR).toInt() + 1
+        val set = newCompactSet<Int>(capacity)
+
+        val a = 5
+        val b = a + actualCapacity
+        Assertions.assertTrue(set.add(a))
+        Assertions.assertTrue(set.add(b))
+        Assertions.assertEquals(2, set.size)
+        Assertions.assertTrue(set.contains(a))
+        Assertions.assertTrue(set.contains(b))
+    }
 
     companion object {
         @JvmStatic
