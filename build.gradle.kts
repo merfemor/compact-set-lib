@@ -23,6 +23,21 @@ tasks.test {
     useJUnitPlatform()
 }
 
+java {
+    withSourcesJar()
+}
+
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+publishing {
+    publications {
+        create("local", MavenPublication::class) {
+            groupId = project.group.toString()
+            artifactId = project.name
+            version = project.version.toString()
+            from(components["java"])
+        }
+    }
 }
