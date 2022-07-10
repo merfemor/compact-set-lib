@@ -19,6 +19,12 @@ class HashCompactSetGeneralImplTest {
     }
 
     @Test
+    fun `contains on empty set is false`() {
+        val set = newCompactSet<String>()
+        Assertions.assertFalse(set.contains("some string"))
+    }
+
+    @Test
     fun `contains null on empty set is false`() {
         val set = newCompactSet<String?>()
         Assertions.assertFalse(set.contains(null))
