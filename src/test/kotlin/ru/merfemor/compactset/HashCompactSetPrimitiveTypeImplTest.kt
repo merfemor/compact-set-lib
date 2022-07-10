@@ -2,6 +2,8 @@ package ru.merfemor.compactset
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class HashCompactSetPrimitiveTypeImplTest {
     @Test
@@ -10,79 +12,54 @@ class HashCompactSetPrimitiveTypeImplTest {
         Assertions.assertEquals(0, set.size)
     }
 
-    @Test
-    fun `contains on empty set is false`() {
+    @ParameterizedTest
+    @ValueSource(ints = [12, 0, Int.MAX_VALUE, Int.MIN_VALUE])
+    fun `contains on empty set is false`(value: Int) {
         val set = newCompactSet<Int>()
-        Assertions.assertFalse(set.contains(7))
+        Assertions.assertFalse(set.contains(value))
     }
 
-    @Test
-    fun `contains zero on empty set is false`() {
+    @ParameterizedTest
+    @ValueSource(ints = [12, 0, Int.MAX_VALUE, Int.MIN_VALUE])
+    fun `add returns true when element was not in set`(value: Int) {
         val set = newCompactSet<Int>()
-        Assertions.assertFalse(set.contains(0))
+        Assertions.assertTrue(set.add(value))
     }
 
-    @Test
-    fun `add returns true when elements was not in set`() {
+    @ParameterizedTest
+    @ValueSource(ints = [12, 0, Int.MAX_VALUE, Int.MIN_VALUE])
+    fun `size changes after add`(value: Int) {
         val set = newCompactSet<Int>()
-        Assertions.assertTrue(set.add(12))
-    }
-
-    @Test
-    fun `size changes after add`() {
-        val set = newCompactSet<Int>()
-        set.add(12)
+        set.add(value)
         Assertions.assertEquals(1, set.size)
     }
 
-    @Test
-    fun `duplicate element is not added`() {
+    @ParameterizedTest
+    @ValueSource(ints = [12, 0, Int.MAX_VALUE, Int.MIN_VALUE])
+    fun `contains returns true after add`(value: Int) {
         val set = newCompactSet<Int>()
-        set.add(12)
-        Assertions.assertFalse(set.add(12))
+        set.add(value)
+        Assertions.assertTrue(set.contains(value))
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [12, 0])
+    fun `duplicate element is not added`(value: Int) {
+        val set = newCompactSet<Int>()
+        set.add(value)
+        Assertions.assertFalse(set.add(value))
         Assertions.assertEquals(1, set.size)
     }
 
-    @Test
-    fun `add and contains work correctly with max value`() {
-        val set = newCompactSet<Int>()
-        Assertions.assertTrue(set.add(Int.MAX_VALUE))
-        Assertions.assertTrue(set.contains(Int.MAX_VALUE))
-        Assertions.assertEquals(1, set.size)
-    }
-
-    @Test
-    fun `add and contains work correctly with min value`() {
-        val set = newCompactSet<Int>()
-        Assertions.assertTrue(set.add(Int.MIN_VALUE))
-        Assertions.assertTrue(set.contains(Int.MIN_VALUE))
-        Assertions.assertEquals(1, set.size)
-    }
-
-    @Test
-    fun `add and contains work correctly with zero value`() {
-        val set = newCompactSet<Int>()
-        Assertions.assertTrue(set.add(0))
-        Assertions.assertTrue(set.contains(0))
-        Assertions.assertEquals(1, set.size)
-    }
-
-    @Test
-    fun `zero is not added twice`() {
-        val set = newCompactSet<Int>()
-        Assertions.assertTrue(set.add(0))
-        Assertions.assertFalse(set.add(0))
-        Assertions.assertEquals(1, set.size)
-    }
-
-    @Test
-    fun `add works if elements number exceed expectedSize`() {
+    @ParameterizedTest
+    @ValueSource(ints = [0, 12])
+    fun `add works if elements number exceed expectedSize`(secondElement: Int) {
         val set = newCompactSet<Int>(1)
         set.add(1)
-        set.add(2)
+        set.add(secondElement)
         Assertions.assertEquals(2, set.size)
         Assertions.assertTrue(set.contains(1))
-        Assertions.assertTrue(set.contains(2))
+        Assertions.assertTrue(set.contains(secondElement))
     }
 
     @Test

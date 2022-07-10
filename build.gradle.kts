@@ -16,6 +16,7 @@ repositories {
 dependencies {
     implementation("org.ow2.asm:asm:9.3")
     testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.8.2")
 }
 
 tasks.test {

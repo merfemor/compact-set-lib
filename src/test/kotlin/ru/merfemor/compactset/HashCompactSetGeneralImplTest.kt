@@ -2,15 +2,11 @@ package ru.merfemor.compactset
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.NullAndEmptySource
+import org.junit.jupiter.params.provider.ValueSource
 
 class HashCompactSetGeneralImplTest {
-
-    @Test
-    fun `throws on incorrect expectedSize`() {
-        Assertions.assertThrows(IllegalArgumentException::class.java) {
-            newCompactSet<String>(-1)
-        }
-    }
 
     @Test
     fun `initial size is zero`() {
@@ -18,73 +14,61 @@ class HashCompactSetGeneralImplTest {
         Assertions.assertEquals(0, set.size)
     }
 
-    @Test
-    fun `contains on empty set is false`() {
-        val set = newCompactSet<String>()
-        Assertions.assertFalse(set.contains("some string"))
-    }
-
-    @Test
-    fun `contains null on empty set is false`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["some string"])
+    @NullAndEmptySource
+    fun `contains on empty set is false`(value: String?) {
         val set = newCompactSet<String?>()
-        Assertions.assertFalse(set.contains(null))
+        println("value is $value")
+        Assertions.assertFalse(set.contains(value))
     }
 
-    @Test
-    fun `add returns true when elements was not in set`() {
-        val set = newCompactSet<String>()
-        Assertions.assertTrue(set.add("element"))
-    }
-
-    @Test
-    fun `size changes after add`() {
-        val set = newCompactSet<String>()
-        set.add("element")
-        Assertions.assertEquals(1, set.size)
-    }
-
-    @Test
-    fun `duplicate element is not added`() {
-        val set = newCompactSet<String>()
-        set.add("element")
-        Assertions.assertFalse(set.add("element"))
-        Assertions.assertEquals(1, set.size)
-    }
-
-    @Test
-    fun `add and contains work correctly with null values`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["some string"])
+    @NullAndEmptySource
+    fun `add returns true when element was not in set`(value: String?) {
         val set = newCompactSet<String?>()
-        set.add(null)
-        Assertions.assertEquals(1, set.size)
-        Assertions.assertTrue(set.contains(null))
+        Assertions.assertTrue(set.add(value))
     }
 
-    @Test
-    fun `null is not added twice`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["some string"])
+    @NullAndEmptySource
+    fun `size changes after add`(value: String?) {
         val set = newCompactSet<String?>()
-        set.add(null)
-        Assertions.assertFalse(set.add(null))
+        set.add(value)
         Assertions.assertEquals(1, set.size)
     }
 
-    @Test
-    fun `add works if elements number exceed expectedSize`() {
-        val set = newCompactSet<String>(1)
-        set.add("1")
-        set.add("2")
-        Assertions.assertEquals(2, set.size)
-        Assertions.assertTrue(set.contains("1"))
-        Assertions.assertTrue(set.contains("2"))
+    @ParameterizedTest
+    @ValueSource(strings = ["some string"])
+    @NullAndEmptySource
+    fun `contains returns true after add`(value: String?) {
+        val set = newCompactSet<String?>()
+        set.add(value)
+        Assertions.assertTrue(set.contains(value))
     }
 
-    @Test
-    fun `nulls not lost if added more than expectedSize`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["some string"])
+    @NullAndEmptySource
+    fun `duplicate element is not added`(value: String?) {
+        val set = newCompactSet<String?>()
+        set.add(value)
+        Assertions.assertFalse(set.add(value))
+        Assertions.assertEquals(1, set.size)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["some string"])
+    @NullAndEmptySource
+    fun `add works if elements number exceed expectedSize`(secondElement: String?) {
         val set = newCompactSet<String?>(1)
-        set.add(null)
         set.add("1")
+        set.add(secondElement)
         Assertions.assertEquals(2, set.size)
         Assertions.assertTrue(set.contains("1"))
-        Assertions.assertTrue(set.contains(null))
+        Assertions.assertTrue(set.contains(secondElement))
     }
 
     @Test
