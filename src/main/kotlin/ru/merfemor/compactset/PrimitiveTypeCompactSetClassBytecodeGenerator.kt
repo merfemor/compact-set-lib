@@ -1,13 +1,8 @@
 package ru.merfemor.compactset
 
-import org.objectweb.asm.ClassVisitor
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.Label
-import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.*
 import org.objectweb.asm.Opcodes.*
-import org.objectweb.asm.Type
 import java.util.function.Consumer
-import kotlin.reflect.KClass
 
 
 /**
@@ -22,11 +17,19 @@ import kotlin.reflect.KClass
  */
 internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
     private val typeParameter: Class<T>,
-    private val canonicalName: String
+    canonicalName: String
 ) {
-    // TODO: generalize for Double + Long
-    private val arrayTypeDescriptor = IntArray::class.descriptor
-    private val arrayType = T_INT
+    private val internalClassName = canonicalName.toInternalName()
+    private val typeInfo = findTypeInfo(typeParameter)
+    private fun findTypeInfo(typeParameter: Class<T>): CompactSetPrimitiveTypeInfo {
+        for (value in CompactSetPrimitiveTypeInfo.values()) {
+            if (value.primitiveType.javaObjectType == typeParameter ||
+                value.primitiveType.javaPrimitiveType == typeParameter) {
+                return value
+            }
+        }
+        throw IllegalArgumentException("TypeParameter $typeParameter is not supported")
+    }
 
     fun generateImplClassBytecode(): ByteArray {
         val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
@@ -43,7 +46,7 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         val signature = "L$superClass<${typeParameter.descriptor}>;"
         cv.visit(
             V1_8, ACC_SUPER or ACC_FINAL or ACC_PUBLIC,
-            canonicalName.toInternalName(),
+            internalClassName,
             signature,
             superClass,
             arrayOf(CompactSet::class.internalName)
@@ -51,7 +54,7 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
     }
 
     private fun addFields(cv: ClassVisitor) {
-        cv.visitField(ACC_PRIVATE, HASH_TABLE_FIELD, arrayTypeDescriptor, null, null)
+        cv.visitField(ACC_PRIVATE, HASH_TABLE_FIELD, typeInfo.primitiveArrayType.descriptor, null, null)
         cv.visitField(ACC_PRIVATE, SPECIAL_EMPTY_VAL_ADDED_FIELD,
             Type.BOOLEAN_TYPE.descriptor, null, null)
     }
@@ -68,8 +71,13 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         // initialize hash table with an empty array
         mv.visitVarInsn(ALOAD, 0) // this
         mv.visitInsn(ICONST_0)
-        mv.visitIntInsn(NEWARRAY, arrayType)
-        mv.visitFieldInsn(PUTFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, IntArray::class.descriptor)
+        mv.visitIntInsn(NEWARRAY, typeInfo.newarrayType)
+        mv.visitFieldInsn(
+            PUTFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
 
         mv.visitInsn(RETURN)
         mv.visitMaxsAndEnd()
@@ -90,7 +98,12 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         mv.visitCode()
         // get array.length
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, arrayTypeDescriptor)
+        mv.visitFieldInsn(
+            GETFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
         mv.visitInsn(ARRAYLENGTH)
         mv.visitInsn(IRETURN)
         mv.visitMaxsAndEnd()
@@ -101,26 +114,32 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
             "(I)${Object::class.descriptor}", null, null)
         mv.visitCode()
 
+        // array[i]
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, arrayTypeDescriptor)
+        mv.visitFieldInsn(
+            GETFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
         mv.visitVarInsn(ILOAD, 1)
-        mv.visitInsn(IALOAD)
-        mv.visitInsn(DUP)
-        mv.visitVarInsn(ISTORE, 2) // save array[i] in local var
+        mv.visitInsn(typeInfo.aloadInsn)
+        mv.visitInsn(typeInfo.dupInsn)
+        mv.visitVarInsn(typeInfo.storeInsn, 2) // save array[i] in local var
 
         // if array[index] == 0
         val cellIsNotEmpty = Label()
-        mv.visitJumpInsn(IFNE, cellIsNotEmpty)
+        addIfInsnWithTypecast(mv, IFNE, cellIsNotEmpty)
 
         // return null
         mv.visitInsn(ACONST_NULL)
         mv.visitInsn(ARETURN)
 
-        // else return Integer.valueOf(array[i])
+        // else return Integer.valueOf(array[i]) - example for T=int
         mv.visitLabel(cellIsNotEmpty)
-        mv.visitVarInsn(ILOAD, 2)
-        mv.visitMethodInsn(INVOKESTATIC, Integer::class.internalName, "valueOf",
-            "(I)${Integer::class.descriptor}", false)
+        mv.visitVarInsn(typeInfo.loadInsn, 2)
+        mv.visitMethodInsn(INVOKESTATIC, typeInfo.wrapperType.internalName, "valueOf",
+            "(${typeInfo.primitiveType.descriptor})${typeInfo.wrapperType.descriptor}", false)
         mv.visitInsn(ARETURN)
         mv.visitMaxsAndEnd()
     }
@@ -128,14 +147,20 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
     private fun addMethodSetElementAt(cv: ClassVisitor) {
         val mv = cv.visitMethod(ACC_PROTECTED, "setElementAt", "(I${Object::class.descriptor})V", null, null)
         mv.visitCode()
-        // array[i] = ((Integer) element).intValue()
+        // array[i] = ((Integer) element).intValue() - example for T=int
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, arrayTypeDescriptor)
+        mv.visitFieldInsn(
+            GETFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
         mv.visitVarInsn(ILOAD, 1)
         mv.visitVarInsn(ALOAD, 2)
-        mv.visitTypeInsn(CHECKCAST, Integer::class.internalName)
-        mv.visitMethodInsn(INVOKEVIRTUAL, Integer::class.internalName, "intValue", "()I", false)
-        mv.visitInsn(IASTORE)
+        mv.visitTypeInsn(CHECKCAST, typeInfo.wrapperType.internalName)
+        mv.visitMethodInsn(INVOKEVIRTUAL, typeInfo.wrapperType.internalName, typeInfo.unboxingMethodName,
+            "()${typeInfo.primitiveType.descriptor}", false)
+        mv.visitInsn(typeInfo.astoreInsn)
         mv.visitInsn(RETURN)
         mv.visitMaxsAndEnd()
     }
@@ -143,19 +168,29 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
     private fun addMethodResizeHashTable(cv: ClassVisitor) {
         val mv = cv.visitMethod(ACC_PROTECTED, "resizeHashTable",
             "(I${Consumer::class.descriptor})V",
-            "(IL${Consumer::class.internalName}<${Integer::class.descriptor}>;)V", null)
+            "(IL${Consumer::class.internalName}<${typeInfo.wrapperType.descriptor}>;)V", null)
         mv.visitCode()
         // get array
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, arrayTypeDescriptor)
+        mv.visitFieldInsn(
+            GETFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
         // save in local variable
         mv.visitVarInsn(ASTORE, 3)
 
-        // array = new int[newSize]
+        // array = new int[newSize] - example for T=int
         mv.visitVarInsn(ALOAD, 0)
         mv.visitVarInsn(ILOAD, 1)
-        mv.visitIntInsn(NEWARRAY, arrayType)
-        mv.visitFieldInsn(PUTFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, arrayTypeDescriptor)
+        mv.visitIntInsn(NEWARRAY, typeInfo.newarrayType)
+        mv.visitFieldInsn(
+            PUTFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
 
         // if oldArray == null
         mv.visitVarInsn(ALOAD, 3)
@@ -178,19 +213,19 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         // oldArray[i]
         mv.visitVarInsn(ALOAD, 3) // oldArray
         mv.visitVarInsn(ILOAD, 5) // i
-        mv.visitInsn(IALOAD)
-        mv.visitInsn(DUP)
-        mv.visitVarInsn(ISTORE, 7)
+        mv.visitInsn(typeInfo.aloadInsn)
+        mv.visitInsn(typeInfo.dupInsn)
+        mv.visitVarInsn(typeInfo.storeInsn, 7)
 
         // if oldArray[i] == 0
         val gotoNextElement = Label()
-        mv.visitJumpInsn(IFEQ, gotoNextElement)
+        addIfInsnWithTypecast(mv, IFEQ, gotoNextElement)
 
-        // transferOldElement.accept(Integer.valueOf(oldArray[i]))
+        // transferOldElement.accept(Integer.valueOf(oldArray[i])) - example for T=int
         mv.visitVarInsn(ALOAD, 2) // transferOldElement
-        mv.visitVarInsn(ILOAD, 7)
-        mv.visitMethodInsn(INVOKESTATIC, Integer::class.internalName, "valueOf",
-            "(I)${Integer::class.descriptor}", false)
+        mv.visitVarInsn(typeInfo.loadInsn, 7)
+        mv.visitMethodInsn(INVOKESTATIC, typeInfo.wrapperType.internalName, "valueOf",
+            "(${typeInfo.primitiveType.descriptor})${typeInfo.wrapperType.descriptor}", false)
         mv.visitMethodInsn(INVOKEINTERFACE, Consumer::class.internalName, "accept",
             "(${Object::class.descriptor})V", true)
 
@@ -209,13 +244,18 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
 
         // array[index]
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), HASH_TABLE_FIELD, arrayTypeDescriptor)
+        mv.visitFieldInsn(
+            GETFIELD,
+            internalClassName,
+            HASH_TABLE_FIELD,
+            typeInfo.primitiveArrayType.descriptor
+        )
         mv.visitVarInsn(ILOAD, 1)
-        mv.visitInsn(IALOAD)
+        mv.visitInsn(typeInfo.aloadInsn)
 
         // if array[index] != 0
         val returnFalse = Label()
-        mv.visitJumpInsn(IFNE, returnFalse)
+        addIfInsnWithTypecast(mv, IFNE, returnFalse)
         // return true
         mv.visitInsn(ICONST_1)
         mv.visitInsn(IRETURN)
@@ -223,6 +263,16 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         mv.visitInsn(ICONST_0)
         mv.visitInsn(IRETURN)
         mv.visitMaxsAndEnd()
+    }
+
+    private fun addIfInsnWithTypecast(mv: MethodVisitor, insn: Int, label: Label) {
+        // For long/double we don't have instruction like IFNE, we need first to push 0 constant to stack
+        // and use separate instruction for comparing which returns int.
+        typeInfo.typecastForIfInfo?.let {
+            mv.visitInsn(it.const0Insn)
+            mv.visitInsn(it.cmpInsn)
+        }
+        mv.visitJumpInsn(insn, label)
     }
 
     private fun addMethodContains(cv: ClassVisitor) {
@@ -235,15 +285,16 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         val callSuper = Label()
         mv.visitJumpInsn(IFNULL, callSuper)
 
-        // else if ((Integer) value).intValue() == 0
+        // else if ((Integer) value).intValue() == 0 - example for T=int
         mv.visitVarInsn(ALOAD, 1)
-        mv.visitTypeInsn(CHECKCAST, Integer::class.internalName)
-        mv.visitMethodInsn(INVOKEVIRTUAL, Integer::class.internalName, "intValue", "()I", false)
-        mv.visitJumpInsn(IFNE, callSuper)
+        mv.visitTypeInsn(CHECKCAST, typeInfo.wrapperType.internalName)
+        mv.visitMethodInsn(INVOKEVIRTUAL, typeInfo.wrapperType.internalName,
+            typeInfo.unboxingMethodName, "()${typeInfo.primitiveType.descriptor}", false)
+        addIfInsnWithTypecast(mv, IFNE, callSuper)
 
         // return specialEmptyValAdded
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), SPECIAL_EMPTY_VAL_ADDED_FIELD, "Z")
+        mv.visitFieldInsn(GETFIELD, internalClassName, SPECIAL_EMPTY_VAL_ADDED_FIELD, "Z")
         mv.visitInsn(IRETURN)
 
         // else return super.contains(value);
@@ -265,15 +316,16 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         val callSuper = Label()
         mv.visitJumpInsn(IFNULL, callSuper)
 
-        // else if ((Integer) value).intValue() == 0
+        // else if ((Integer) value).intValue() == 0 - example for T=int
         mv.visitVarInsn(ALOAD, 1)
-        mv.visitTypeInsn(CHECKCAST, Integer::class.internalName)
-        mv.visitMethodInsn(INVOKEVIRTUAL, Integer::class.internalName, "intValue", "()I", false)
-        mv.visitJumpInsn(IFNE, callSuper)
+        mv.visitTypeInsn(CHECKCAST, typeInfo.wrapperType.internalName)
+        mv.visitMethodInsn(INVOKEVIRTUAL, typeInfo.wrapperType.internalName,
+            typeInfo.unboxingMethodName, "()${typeInfo.primitiveType.descriptor}", false)
+        addIfInsnWithTypecast(mv, IFNE, callSuper)
 
         // if (specialEmptyValAdded)
         mv.visitVarInsn(ALOAD, 0)
-        mv.visitFieldInsn(GETFIELD, canonicalName.toInternalName(), SPECIAL_EMPTY_VAL_ADDED_FIELD, "Z")
+        mv.visitFieldInsn(GETFIELD, internalClassName, SPECIAL_EMPTY_VAL_ADDED_FIELD, "Z")
         val specialEmptyValAddedIsFalse = Label()
         mv.visitJumpInsn(IFEQ, specialEmptyValAddedIsFalse)
 
@@ -287,15 +339,15 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         // specialEmptyValAdded = true
         mv.visitVarInsn(ALOAD, 0)
         mv.visitInsn(ICONST_1)
-        mv.visitFieldInsn(PUTFIELD, canonicalName.toInternalName(), SPECIAL_EMPTY_VAL_ADDED_FIELD, "Z")
+        mv.visitFieldInsn(PUTFIELD, internalClassName, SPECIAL_EMPTY_VAL_ADDED_FIELD, "Z")
 
         // setSize(getSize() + 1)
         mv.visitVarInsn(ALOAD, 0)
         mv.visitInsn(DUP)
-        mv.visitMethodInsn(INVOKEVIRTUAL, canonicalName.toInternalName(), "getSize", "()I", false)
+        mv.visitMethodInsn(INVOKEVIRTUAL, internalClassName, "getSize", "()I", false)
         mv.visitInsn(ICONST_1)
         mv.visitInsn(IADD)
-        mv.visitMethodInsn(INVOKEVIRTUAL, canonicalName.toInternalName(), "setSize", "(I)V", false)
+        mv.visitMethodInsn(INVOKEVIRTUAL, internalClassName, "setSize", "(I)V", false)
 
         // return true
         mv.visitInsn(ICONST_1)
@@ -309,17 +361,6 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         mv.visitInsn(IRETURN)
         mv.visitMaxsAndEnd()
     }
-
-    private fun String.toInternalName(): String = replace('.', '/')
-
-    private val <T : Any> KClass<T>.internalName: String
-        get() = Type.getInternalName(this.java)
-
-    private val <T> Class<T>.descriptor: String
-        get() = Type.getDescriptor(this)
-
-    private val <T : Any> KClass<T>.descriptor: String
-        get() = this.java.descriptor
 
     private fun MethodVisitor.visitMaxsAndEnd() {
         visitMaxs(0, 0) // computed automatically

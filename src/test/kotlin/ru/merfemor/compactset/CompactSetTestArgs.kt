@@ -5,7 +5,7 @@ package ru.merfemor.compactset
  * Use [create] to create new instance.
  */
 open class CompactSetTestEmptyArgs<T> protected constructor(
-    private val typeParameter: Class<T>,
+    protected val typeParameter: Class<T>,
     private val newCompactSetRef: (Int) -> CompactSet<T>
 ) {
     fun newCompactSet(expectedSize: Int = 16) = newCompactSetRef(expectedSize)
@@ -32,7 +32,7 @@ class CompactSetTestOneValueArgs<T> private constructor(
 ) : CompactSetTestEmptyArgs<T>(typeParameter, newCompactSetRef) {
 
     override fun toString(): String {
-        return "CompactSetTestOneValueArgs($value)"
+        return "CompactSetTestOneValueArgs($typeParameter, $value)"
     }
 
     companion object {
@@ -54,7 +54,7 @@ class CompactSetTestTwoValueArgs<T> private constructor(
 ) : CompactSetTestEmptyArgs<T>(typeParameter, newCompactSetRef) {
 
     override fun toString(): String {
-        return "CompactSetTestTwoValueArgs($firstValue, $secondValue)"
+        return "CompactSetTestTwoValueArgs($typeParameter, $firstValue, $secondValue)"
     }
 
     companion object {
