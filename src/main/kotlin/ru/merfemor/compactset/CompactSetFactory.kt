@@ -1,5 +1,6 @@
 package ru.merfemor.compactset
 
+private val primitiveTypeCompactSetClassProvider by lazy { PrimitiveTypeCompactSetClassProvider() }
 
 /**
  * Creates new compact set. Implementation is chosen based on type parameter [T].
@@ -20,7 +21,7 @@ fun <T> newGeneralTypeCompactSet(expectedSize: Int): CompactSet<T> {
 }
 
 fun <T> newPrimitiveTypeCompactSet(expectedSize: Int, typeParameter: Class<T>): CompactSet<T> {
-    val compactSetImplClass = PrimitiveTypeCompactSetClassProvider.getImplClassFactory(typeParameter)
+    val compactSetImplClass = primitiveTypeCompactSetClassProvider.getImplClass(typeParameter)
     val constructor = compactSetImplClass.getDeclaredConstructor(Integer.TYPE)
     return constructor.newInstance(expectedSize)
 }
