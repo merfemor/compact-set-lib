@@ -68,17 +68,6 @@ internal class PrimitiveTypeCompactSetClassBytecodeGenerator<T>(
         mv.visitMethodInsn(INVOKESPECIAL, AbstractHashCompactSet::class.internalName,
             "<init>", "(I)V", false)
 
-        // initialize hash table with an empty array
-        mv.visitVarInsn(ALOAD, 0) // this
-        mv.visitInsn(ICONST_0)
-        mv.visitIntInsn(NEWARRAY, typeInfo.newarrayType)
-        mv.visitFieldInsn(
-            PUTFIELD,
-            internalClassName,
-            HASH_TABLE_FIELD,
-            typeInfo.primitiveArrayType.descriptor
-        )
-
         mv.visitInsn(RETURN)
         mv.visitMaxsAndEnd()
     }

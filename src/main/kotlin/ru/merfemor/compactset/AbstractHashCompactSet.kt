@@ -101,7 +101,7 @@ internal abstract class AbstractHashCompactSet<T>(expectedSize: Int) : CompactSe
         }
         var hash = element.hashCode()
         if (hash < 0) {
-            hash = -hash
+            hash = hash.inv()
         }
         var i = hash % hashTableSize
 
